@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
 :root {
+ 
   --background: #000000;;
   --foreground: #ffffff;
 }
@@ -28,7 +29,6 @@ body {
 td{
   text-align: center;
 }
-
 .hover-animated-gradient-button:hover {
   animation: gradientHoverMove 4s ease infinite;
 }
