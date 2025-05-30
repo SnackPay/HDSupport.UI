@@ -14,7 +14,6 @@ export class UsuarioService {
     static Login(email: string, senha: string) {
         return axiosInstance.post(`/Usuario/Login?email=${email}&senha=${senha}`)
     }
-
     static Register(
         nome: string,
         email: string,
