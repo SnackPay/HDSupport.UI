@@ -9,24 +9,9 @@ export default function ChatArea({ chat, onFinalizarChamado }: any) {
 
   useEffect(() => {
     setStatus(chat?.status);
-    // Resetar mensagens ao trocar de chat (simulação)
+    // Ao trocar de chat, limpar as mensagens (ou buscar do backend se desejar)
     if (chat) {
-      setMensagens([
-        {
-          id: 1,
-          autor: "usuário",
-          nome: chat.usuario,
-          texto: "Olá, estou com problemas para fazer meu queijo funcionar corretamente. Alguém pode ajudar?",
-          hora: "10:30 AM",
-        },
-        {
-          id: 2,
-          autor: "atendente",
-          nome: "Atendente",
-          texto: "Olá! Poderia nos dar mais detalhes sobre o problema com seu queijo?",
-          hora: "10:32 AM",
-        },
-      ]);
+      setMensagens([]);
     }
   }, [chat]);
 
@@ -58,17 +43,47 @@ export default function ChatArea({ chat, onFinalizarChamado }: any) {
       });
   };
 
-  const handleEnviarMensagem = () => {
+  const handleEnviarMensagem = async () => {
     if (!mensagem.trim()) return;
-    const novaMensagem = {
-      id: mensagens.length + 1,
-      autor: "usuário",
-      nome: chat.usuario,
-      texto: mensagem,
-      hora: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    };
-    setMensagens([...mensagens, novaMensagem]);
-    setMensagem("");
+    const token = localStorage.getItem('token');
+    const idf_Usuario = localStorage.getItem('idf_Usuario');
+    console.log('Token:', token);
+    console.log('idf_Usuario:', idf_Usuario);
+    console.log('Mensagem:', mensagem);
+    console.log('Id da conversa:', chat.id);
+    if (!token || !idf_Usuario) {
+      console.log('Token ou idf_Usuario não encontrado');
+      return;
+    }
+    try {
+      const res = await fetch(`https://localhost:7299/api/Conversa/Registro-mensagem?idConversa=${chat.id}`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          msg_Mensagem: mensagem,
+          id_Conversa: chat.id,
+          idf_Usuario: Number(idf_Usuario)
+        })
+      });
+      console.log('Resposta do backend:', res);
+      if (!res.ok) throw new Error('Erro ao enviar mensagem');
+      const data = await res.json();
+      console.log('Dados retornados:', data);
+      setMensagens([...mensagens, {
+        id: mensagens.length + 1,
+        autor: "usuário",
+        nome: chat.usuario,
+        texto: mensagem,
+        hora: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      }]);
+      setMensagem("");
+    } catch (err) {
+      alert('Erro ao enviar mensagem!');
+      console.error(err);
+    }
   };
 
   const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -79,7 +94,9 @@ export default function ChatArea({ chat, onFinalizarChamado }: any) {
 
   if (!chat) {
     return (
-      <div className="flex flex-1 items-center justify-center text-blue-200 text-lg">Selecione uma conversa para visualizar o chat.</div>
+      <div className="flex flex-1 w-300 h-full bg-neutral-950 items-center justify-center">
+        <span className="text-blue-200 text-2xl text-center">Selecione uma conversa para visualizar o chat.</span>
+      </div>
     );
   }
   return (
@@ -105,7 +122,7 @@ export default function ChatArea({ chat, onFinalizarChamado }: any) {
         <span className="text-blue-400 font-bold">Aviso! Após encerrado, o chamado não poderá ser acessado novamente</span>
       </div>
       <div className="mb-4">
-        <div className="h-[60vh] overflow-y-auto flex flex-col justify-end gap-2 bg-black bg-opacity-80 rounded p-4 custom-scrollbar">
+        <div className="h-[60vh] overflow-y-auto flex flex-col gap-2 bg-black bg-opacity-80 rounded p-4 custom-scrollbar scrollbar-hide">
           {mensagens.map((msg) => (
             <div key={msg.id} className={`flex ${msg.autor === "usuário" ? "justify-end" : "justify-start"}`}>
               <div className={`max-w-xl px-4 py-2 rounded-2xl text-base shadow-md ${msg.autor === "usuário" ? "bg-blue-700 text-white rounded-br-none" : "bg-neutral-800 text-blue-200 rounded-bl-none"}`} style={{wordBreak: 'break-word'}}>

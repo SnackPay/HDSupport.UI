@@ -74,3 +74,12 @@ td{
     background-position: 0% 50%;
   }
 }
+
+/* Esconde a scrollbar em todos os navegadores */
+.scrollbar-hide {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE 10+ */
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none; /* Chrome, Safari e Opera */
+}
