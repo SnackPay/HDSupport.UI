@@ -21,9 +21,11 @@ const statusColors: Record<StatusType, string> = {
 export default function ConversasList({ onSelect, selectedChat }: any) {
   const [search, setSearch] = useState("");
   const [conversas, setConversas] = useState<Conversa[]>([]);
+  const [notificacoes, setNotificacoes] = useState<{ [key: number]: number }>({});
 
   useEffect(() => {
     const token = localStorage.getItem('token');
+    const idf_Usuario = localStorage.getItem('idf_Usuario');
     fetch('https://localhost:7299/api/Conversa/ListarTodosChamados', {
       headers: {
         Authorization: `Bearer ${token}`
@@ -40,6 +42,23 @@ export default function ConversasList({ onSelect, selectedChat }: any) {
           data: item.dta_Inicio_Conversa ? new Date(item.dta_Inicio_Conversa).toLocaleString('pt-BR') : "",
         }));
         setConversas(conversasFormatadas);
+        // Buscar notificações de mensagens novas para cada conversa
+        if (idf_Usuario) {
+          conversasFormatadas.forEach((c) => {
+            fetch(`https://localhost:7299/api/Conversa/Verificar-mensagens-novas/${c.id}/${idf_Usuario}`, {
+              headers: {
+                Authorization: `Bearer ${token}`
+              }
+            })
+              .then(res => res.json())
+              .then(data => {
+                setNotificacoes(prev => ({ ...prev, [c.id]: data.quantidadeMensagensNovas || 0 }));
+              })
+              .catch(() => {
+                setNotificacoes(prev => ({ ...prev, [c.id]: 0 }));
+              });
+          });
+        }
       });
   }, []);
 
@@ -94,6 +113,11 @@ export default function ConversasList({ onSelect, selectedChat }: any) {
       });
   };
 
+  const handleSelect = (c: Conversa) => {
+    setNotificacoes(prev => ({ ...prev, [c.id]: 0 }));
+    onSelect(c);
+  };
+
   const conversasFiltradas = conversas.filter((c: Conversa) =>
     c.usuario.toLowerCase().includes(search.toLowerCase()) ||
     c.titulo.toLowerCase().includes(search.toLowerCase())
@@ -112,7 +136,7 @@ export default function ConversasList({ onSelect, selectedChat }: any) {
         <div
           key={c.id}
           className={`rounded-lg p-4 mb-2 cursor-pointer bg-neutral-800 hover:bg-neutral-700 transition flex items-center border-l-4 ${selectedChat?.id === c.id ? "border-blue-400" : "border-transparent"}`}
-          onClick={() => onSelect(c)}
+          onClick={() => handleSelect(c)}
         >
           <img
             src={c.avatar}
@@ -128,6 +152,9 @@ export default function ConversasList({ onSelect, selectedChat }: any) {
             <div className="text-blue-200 text-sm truncate">{c.titulo}</div>
             <div className="text-xs text-blue-400 mt-1">{c.data}</div>
           </div>
+          {notificacoes[c.id] > 0 && (
+            <span className="ml-3 flex items-center justify-center w-6 h-6 rounded-full bg-blue-500 text-white font-bold text-xs">{notificacoes[c.id]}</span>
+          )}
           {c.status === "PENDING" && (
             <button
               className="ml-3 border border-[#0479ff] hover:bg-gray-600 text-white rounded-full p-2 flex items-center justify-center transition cursor-pointer"

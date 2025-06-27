@@ -25,6 +25,9 @@ export default function Page() {
               if (idf_Usuario) {
                 localStorage.setItem('idf_Usuario', String(idf_Usuario));
               }
+              if (response.data.usuario) {
+                localStorage.setItem('usuario', JSON.stringify(response.data.usuario));
+              }
               setToken(token);
               console.log('Login efetuado com sucesso!!:', response.data);
               window.alert(`Login efetuado com sucesso!!`);
