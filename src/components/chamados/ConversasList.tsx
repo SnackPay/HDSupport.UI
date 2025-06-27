@@ -111,7 +111,7 @@ export default function ConversasList({ onSelect, selectedChat }: any) {
       {conversasFiltradas.map((c: Conversa) => (
         <div
           key={c.id}
-          className={`rounded-lg p-4 cursor-pointer bg-neutral-800 hover:bg-neutral-700 transition flex items-center border-l-4 ${selectedChat?.id === c.id ? "border-blue-400" : "border-transparent"}`}
+          className={`rounded-lg p-4 mb-2 cursor-pointer bg-neutral-800 hover:bg-neutral-700 transition flex items-center border-l-4 ${selectedChat?.id === c.id ? "border-blue-400" : "border-transparent"}`}
           onClick={() => onSelect(c)}
         >
           <img

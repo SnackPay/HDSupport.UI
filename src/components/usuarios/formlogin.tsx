@@ -18,15 +18,19 @@ export default function Page() {
         try {
             const response = await UsuarioService.Login(email, senha)
             const token = response.data.token;
+            const idf_Usuario = response.data.usuario?.id;
 
             if (token) {
-                localStorage.setItem('token', token);
-                setToken(token);
-                console.log('Login efetuado com sucesso!!:', response.data);
-                window.alert(`Login efetuado com sucesso!!`);
-                router.push('/');
+              localStorage.setItem('token', token);
+              if (idf_Usuario) {
+                localStorage.setItem('idf_Usuario', String(idf_Usuario));
+              }
+              setToken(token);
+              console.log('Login efetuado com sucesso!!:', response.data);
+              window.alert(`Login efetuado com sucesso!!`);
+              router.push('/');
             } else {
-                window.alert('Token não recebido do backend.');
+              window.alert('Token não recebido do backend.');
             }
         } catch (error) {
             console.error('Erro ao efetuar login!!:', error);
