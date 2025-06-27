@@ -11,7 +11,7 @@ export default function Page() {
   const pathname = usePathname();
 
   return (
-    <div className="flex h-screen bg-black">
+    <div className="flex h-screen bg-black"> 
       <div className="flex flex-1 h-full">
         <div className="w-96 max-w-sm border-r border-neutral-800 bg-neutral-900 flex flex-col h-full">
           <ConversasList onSelect={setSelectedChat} selectedChat={selectedChat} />

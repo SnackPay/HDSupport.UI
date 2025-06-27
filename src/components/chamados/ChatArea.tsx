@@ -5,13 +5,42 @@ export default function ChatArea({ chat, onFinalizarChamado }: any) {
   const [mensagem, setMensagem] = useState("");
   const [status, setStatus] = useState(chat?.status);
   const [mensagens, setMensagens] = useState<any[]>([]);
+  const [mensagensCache, setMensagensCache] = useState<{ [id: number]: any[] }>({});
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setStatus(chat?.status);
-    // Ao trocar de chat, limpar as mensagens (ou buscar do backend se desejar)
     if (chat) {
-      setMensagens([]);
+      // Mostra imediatamente do cache, se houver
+      if (mensagensCache[chat.id]) {
+        setMensagens(mensagensCache[chat.id]);
+      }
+      const token = localStorage.getItem('token');
+      const idf_Usuario = localStorage.getItem('idf_Usuario');
+      // Marcar todas as mensagens como visualizadas ao abrir o chat
+      fetch(`https://localhost:7299/api/Conversa/Marcar-mensagens-visualizadas/${chat.id}/${idf_Usuario}`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      })
+        .then(() => {
+          // Depois de marcar como visualizadas, buscar as mensagens atualizadas
+          fetch(`https://localhost:7299/api/Conversa/Lista-Mensagens?idConversa=${chat.id}`, {
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
+          })
+            .then(res => res.json())
+            .then(data => {
+              setMensagens(data);
+              setMensagensCache(prev => ({ ...prev, [chat.id]: data }));
+            })
+            .catch(err => {
+              setMensagens([]);
+              console.error('Erro ao buscar mensagens:', err);
+            });
+        });
     }
   }, [chat]);
 
@@ -47,12 +76,50 @@ export default function ChatArea({ chat, onFinalizarChamado }: any) {
     if (!mensagem.trim()) return;
     const token = localStorage.getItem('token');
     const idf_Usuario = localStorage.getItem('idf_Usuario');
-    console.log('Token:', token);
-    console.log('idf_Usuario:', idf_Usuario);
-    console.log('Mensagem:', mensagem);
-    console.log('Id da conversa:', chat.id);
-    if (!token || !idf_Usuario) {
-      console.log('Token ou idf_Usuario não encontrado');
+    const usuarioRaw = localStorage.getItem('usuario');
+    let usuario = usuarioRaw ? JSON.parse(usuarioRaw) : null;
+    // Preencher todos os campos obrigatórios do objeto usuario ou usar valores padrão se null
+    if (!usuario) {
+      usuario = {
+        id: 0,
+        nme_Usuario: "string",
+        eml_Usuario: "string",
+        sen_Usuario: "string",
+        tel_Usuario: "string",
+        cargo_Usuario: "string",
+        img_Usuario: "string",
+        status_Usuario: 1,
+        status_Conversa: 1,
+        token_Redefinicao_Senha: "string",
+        dta_Token: "string"
+      };
+    } else {
+      usuario = {
+        id: usuario.id || 0,
+        nme_Usuario: usuario.nme_Usuario || "",
+        eml_Usuario: usuario.eml_Usuario || "",
+        sen_Usuario: usuario.sen_Usuario || "",
+        tel_Usuario: usuario.tel_Usuario || "",
+        cargo_Usuario: usuario.cargo_Usuario || "",
+        img_Usuario: usuario.img_Usuario || "",
+        status_Usuario: usuario.status_Usuario || 1,
+        status_Conversa: usuario.status_Conversa || 1,
+        token_Redefinicao_Senha: usuario.token_Redefinicao_Senha || "",
+        dta_Token: usuario.dta_Token || ""
+      };
+    }
+    console.log('Objeto usuario enviado:', usuario);
+    const body = {
+      id: 0,
+      msg_Mensagem: mensagem,
+      idf_Conversa: chat.id,
+      usuario: usuario,
+      idf_Usuario: Number(idf_Usuario),
+      dta_Envio: new Date().toISOString()
+    };
+    console.log('Body da requisição:', body);
+    if (!token || !idf_Usuario || !usuario) {
+      console.log('Token, idf_Usuario ou usuario não encontrado');
       return;
     }
     try {
@@ -62,27 +129,34 @@ export default function ChatArea({ chat, onFinalizarChamado }: any) {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          msg_Mensagem: mensagem,
-          id_Conversa: chat.id,
-          idf_Usuario: Number(idf_Usuario)
-        })
+        body: JSON.stringify(body)
       });
       console.log('Resposta do backend:', res);
+      let data = null;
+      try {
+        data = await res.json();
+        console.log('Dados retornados:', data);
+      } catch (e) {
+        console.log('Não foi possível fazer o parse do JSON retornado:', e);
+      }
       if (!res.ok) throw new Error('Erro ao enviar mensagem');
-      const data = await res.json();
-      console.log('Dados retornados:', data);
-      setMensagens([...mensagens, {
-        id: mensagens.length + 1,
-        autor: "usuário",
-        nome: chat.usuario,
-        texto: mensagem,
-        hora: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      }]);
+      // Após enviar, buscar as mensagens do backend para garantir o balão correto
+      fetch(`https://localhost:7299/api/Conversa/Lista-Mensagens?idConversa=${chat.id}`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      })
+        .then(res => res.json())
+        .then(data => {
+          setMensagens(data);
+        })
+        .catch(err => {
+          console.error('Erro ao buscar mensagens após envio:', err);
+        });
       setMensagem("");
     } catch (err) {
       alert('Erro ao enviar mensagem!');
-      console.error(err);
+      console.error('Erro detalhado:', err);
     }
   };
 
@@ -123,14 +197,41 @@ export default function ChatArea({ chat, onFinalizarChamado }: any) {
       </div>
       <div className="mb-4">
         <div className="h-[60vh] overflow-y-auto flex flex-col gap-2 bg-black bg-opacity-80 rounded p-4 custom-scrollbar scrollbar-hide">
-          {mensagens.map((msg) => (
-            <div key={msg.id} className={`flex ${msg.autor === "usuário" ? "justify-end" : "justify-start"}`}>
-              <div className={`max-w-xl px-4 py-2 rounded-2xl text-base shadow-md ${msg.autor === "usuário" ? "bg-blue-700 text-white rounded-br-none" : "bg-neutral-800 text-blue-200 rounded-bl-none"}`} style={{wordBreak: 'break-word'}}>
-                <div>{msg.texto}</div>
-                <div className="text-xs text-blue-300 mt-1 text-right">{msg.hora}</div>
+          {mensagens.map((msg) => {
+            const idf_Usuario = localStorage.getItem('idf_Usuario');
+            const isMe = String(msg.idf_Usuario) === String(idf_Usuario) || (msg.usuario && String(msg.usuario.id) === String(idf_Usuario));
+            return (
+              <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
+                <div className={`max-w-xl px-4 py-2 rounded-2xl text-base shadow-md ${isMe ? "bg-blue-700 text-white rounded-br-none" : "bg-neutral-800 text-blue-200 rounded-bl-none"}`} style={{wordBreak: 'break-word'}}>
+                  <div>{msg.msg_Mensagem || msg.texto}</div>
+                  <div className="text-xs text-blue-300 mt-1 text-right flex items-center gap-1">
+                    {msg.dta_Envio ? new Date(msg.dta_Envio).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ""}
+                    {isMe && (
+                      <>
+                        {msg.status_Mensagem === 3 ? (
+                          // Dois certinhos brancos (visualizada)
+                          <span className="ml-1 flex">
+                            <svg width="18" height="18" fill="white" viewBox="0 0 24 24">
+                              <path d="M1.5 13.5l6 6 15-15" stroke="white" strokeWidth="2" fill="none"/>
+                              <path d="M9.5 13.5l6 6 7-7" stroke="white" strokeWidth="2" fill="none"/>
+                            </svg>
+                          </span>
+                        ) : (
+                          // Dois certinhos cinza (não visualizada)
+                          <span className="ml-1 flex">
+                            <svg width="18" height="18" fill="#aaa" viewBox="0 0 24 24">
+                              <path d="M1.5 13.5l6 6 15-15" stroke="#aaa" strokeWidth="2" fill="none"/>
+                              <path d="M9.5 13.5l6 6 7-7" stroke="#aaa" strokeWidth="2" fill="none"/>
+                            </svg>
+                          </span>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
           <div ref={chatEndRef} />
         </div>
       </div>
@@ -141,14 +242,19 @@ export default function ChatArea({ chat, onFinalizarChamado }: any) {
           value={mensagem}
           onChange={e => setMensagem(e.target.value)}
           onKeyDown={handleInputKeyDown}
+          disabled={status === 'SOLVED'}
         />
         <button
-          className="bg-blue-900 hover:bg-blue-800 p-2 rounded text-white font-bold px-6 transition cursor-pointer"
+          className="bg-blue-900 hover:bg-blue-800 p-2 rounded text-white font-bold px-6 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           onClick={handleEnviarMensagem}
+          disabled={status === 'SOLVED'}
         >
           Enviar
         </button>
       </div>
+      {status === 'SOLVED' && (
+        <div className="mt-2 text-red-400 font-bold text-center">Este chamado está finalizado. Não é possível enviar novas mensagens.</div>
+      )}
     </div>
   );
 } 
